@@ -1,12 +1,10 @@
 import streamlit as st
 import random
-from PIL import Image, ImageDraw, ImageFont
-import io
 
 # Card definitions based on the official Sorry! game
 CARD_TYPES = {
     '1': {'count': 5, 'color': '#FF6B6B', 'description': 'Move from Start or move 1 space forward'},
-    '2': {'count': 4, 'color': '#4ECDC4', 'description': 'Move from Start or move 2 spaces forward (Draw again!)'},
+    '2': {'count': 4, 'color': '#4ECDC4', 'description': 'Move from Start or move 2 spaces forward'},
     '3': {'count': 4, 'color': '#45B7D1', 'description': 'Move 3 spaces forward'},
     '4': {'count': 4, 'color': '#96CEB4', 'description': 'Move 4 spaces backward'},
     '5': {'count': 4, 'color': '#FFEAA7', 'description': 'Move 5 spaces forward'},
@@ -18,75 +16,58 @@ CARD_TYPES = {
     'Sorry!': {'count': 4, 'color': '#E17055', 'description': 'Move from Start and bump opponent back to their Start'}
 }
 
-def create_card_image(card_value, width=300, height=420):
-    """Create a visual representation of a Sorry! card"""
+def create_card_html(card_value, size='large'):
+    """Create an HTML/CSS representation of a Sorry! card"""
     card_info = CARD_TYPES[card_value]
-    
-    # Create a new image with white background
-    img = Image.new('RGB', (width, height), 'white')
-    draw = ImageDraw.Draw(img)
-    
-    # Draw card border
-    border_color = card_info['color']
-    draw.rectangle([(0, 0), (width-1, height-1)], outline=border_color, width=8)
-    draw.rectangle([(10, 10), (width-11, height-11)], outline=border_color, width=3)
-    
-    # Draw colored header
-    draw.rectangle([(15, 15), (width-16, 100)], fill=border_color)
-    
-    # Try to use a default font, fall back to default if not available
-    try:
-        title_font = ImageFont.truetype("arial.ttf", 60)
-        desc_font = ImageFont.truetype("arial.ttf", 20)
-        sorry_font = ImageFont.truetype("arialbd.ttf", 50)
-    except:
-        title_font = ImageFont.load_default()
-        desc_font = ImageFont.load_default()
-        sorry_font = ImageFont.load_default()
-    
-    # Draw card value
-    if card_value == 'Sorry!':
-        text = "SORRY!"
-        # Calculate text position for centering
-        bbox = draw.textbbox((0, 0), text, font=sorry_font)
-        text_width = bbox[2] - bbox[0]
-        text_x = (width - text_width) // 2
-        draw.text((text_x, 35), text, fill='white', font=sorry_font)
-    else:
-        # Draw number
-        bbox = draw.textbbox((0, 0), card_value, font=title_font)
-        text_width = bbox[2] - bbox[0]
-        text_x = (width - text_width) // 2
-        draw.text((text_x, 30), card_value, fill='white', font=title_font)
-    
-    # Draw description (wrapped text)
+    color = card_info['color']
     description = card_info['description']
-    words = description.split()
-    lines = []
-    current_line = []
     
-    for word in words:
-        current_line.append(word)
-        test_line = ' '.join(current_line)
-        bbox = draw.textbbox((0, 0), test_line, font=desc_font)
-        if bbox[2] - bbox[0] > width - 40:
-            current_line.pop()
-            lines.append(' '.join(current_line))
-            current_line = [word]
+    if size == 'large':
+        card_style = "width: 300px; height: 420px; font-size: 60px;"
+        desc_style = "font-size: 16px; padding: 20px;"
+    else:  # small
+        card_style = "width: 150px; height: 210px; font-size: 30px;"
+        desc_style = "font-size: 10px; padding: 10px; display: none;"
     
-    if current_line:
-        lines.append(' '.join(current_line))
-    
-    # Draw wrapped text
-    y_offset = 130
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=desc_font)
-        text_width = bbox[2] - bbox[0]
-        text_x = (width - text_width) // 2
-        draw.text((text_x, y_offset), line, fill='black', font=desc_font)
-        y_offset += 30
-    
-    return img
+    card_html = f"""
+    <div style="
+        {card_style}
+        background: white;
+        border: 8px solid {color};
+        border-radius: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin: 0 auto;
+    ">
+        <div style="
+            background: {color};
+            width: 100%;
+            padding: 20px;
+            text-align: center;
+            border-radius: 7px 7px 0 0;
+            color: white;
+            font-weight: bold;
+            font-size: inherit;
+        ">
+            {card_value}
+        </div>
+        <div style="
+            {desc_style}
+            text-align: center;
+            color: #333;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            {description if size == 'large' else ''}
+        </div>
+    </div>
+    """
+    return card_html
 
 def initialize_deck():
     """Create a deck with the correct distribution of cards"""
@@ -251,8 +232,8 @@ def main():
             
             col1, col2, col3 = st.columns([1, 1, 1])
             with col2:
-                card_img = create_card_image(last_card)
-                st.image(card_img, use_container_width=True)
+                card_html = create_card_html(last_card, size='large')
+                st.markdown(card_html, unsafe_allow_html=True)
             
             # Show description
             st.info(f"**{last_card}**: {CARD_TYPES[last_card]['description']}")
@@ -271,8 +252,8 @@ def main():
                 cols = st.columns(min(5, len(recent_cards)))
                 for idx, card in enumerate(recent_cards[:5]):
                     with cols[idx]:
-                        card_img = create_card_image(card, width=150, height=210)
-                        st.image(card_img, use_container_width=True)
+                        card_html = create_card_html(card, size='small')
+                        st.markdown(card_html, unsafe_allow_html=True)
                         st.caption(card)
 
 if __name__ == "__main__":
